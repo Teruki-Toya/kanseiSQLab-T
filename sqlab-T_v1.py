@@ -12,6 +12,40 @@ import flet as ft
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
+from scipy import signal
+
+## 固定パラメータの設定 -----------------------------------------------
+#sd.default.device = [1, 4]
+# フィルタカットオフ周波数 [Hz]
+fH2 = 15000
+fH3 = 8000
+fH4 = 3400
+fL5 = 300
+fH5 = 3400
+fL6 = 1000
+fH6 = 3400
+# 刺激         fL      fH
+#   1 (CD)    ----    20000
+#   2 (FM)    ----    15000
+#   3 (AM)    ----     8000
+#   4 (s1)    ----     3400
+#   5 (TEL)    300     3400
+#   6 (s2)    1000     3400
+
+# フィルタの通過/阻止域ゲイン損失 [dB]
+g_pass = 3
+g_stop = 40
+
+## 関数群 -----------------------------------------------------------------
+# (ローパスフィルタ)
+def lowpass(x, fs, f_pass, g_pass, g_stop):
+    f_stop = f_pass + 300           # 阻止域端周波数
+    w_pass = f_pass / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
+    w_stop = f_stop / (fs/2)        # ナイキスト周波数で阻止域端周波数を正規化
+    N, Wn = signal.buttord(w_pass, w_stop, g_pass, g_stop)  # フィルタ次数とバタワース正規化周波数を計算
+    b, a = signal.butter(N, Wn, 'lowpass')                  # フィルタ伝達関数の分子と分母を計算
+    
+    
 
 # Flet の処理 ---------------------
 def main(page):
