@@ -7,17 +7,14 @@ Last updated on Thu Dec 11 14:36 2025
 @author: Teruki Toya, University of Yamanashi
 """
 
+# %%
 ## モジュールのインポート ---------------------------------------------------
 import flet as ft
 import sounddevice as sd
 import soundfile as sf
-
-# %%
 import numpy as np
 from scipy import signal
 import pandas as pd
-
-# %%
 
 ## 関数群 -----------------------------------------------------------------
 # (ローパスフィルタ)
@@ -66,6 +63,7 @@ g_stop = 40
 ## 提示刺激の設定 -----------------------------------------------
 #（刺激の生成）
 x1, fs = sf.read('02AuraLee3.mp3')         # 原音（= 刺激1）
+x1 = x1[:, 0]
 
 x2 = lowpass(x1, fs, fH2, g_pass, g_stop)  # 刺激2
 x3 = lowpass(x1, fs, fH3, g_pass, g_stop)  # 刺激3
@@ -94,7 +92,8 @@ x6 = (RMSref/RMS_x6) * x6
 
 #（結合）
 x = np.stack([x1, x2, x3, x4, x5, x6], axis=1)  # 6-ch 信号
-    
+
+# %%
 # Flet の処理 --------------------------------------------------
 def main(page):
     
@@ -115,24 +114,49 @@ def main(page):
     ans_radio = ft.Ref[ft.RadioGroup]()   # 回答部ラジオボタンを定義
     OK_button = ft.Ref[ft.Button]()       # OKボタンを定義
     
-    # OKボタン押下時の動作を記述 -----------------------------------
+    # Init ボタン押下時の動作を記述 -----------------------------------
     def buttonInit_clicked(e):
         if exp_drpdn.current.value == "本実験":
             N_stim = 6  # 本実験ならば刺激種類 6
         else:
             N_stim = 3  # 予備実験ならば刺激種類 3
+        Ns_sr = pd.Series(N_stim)  # pandasシリーズ化
         
         # 刺激ペア生成用数列
         K = np.random.permutation(np.arange(N_stim ** 2))
-        K_sr = pd.Series(K)
-        
-
-        page.update()               # ページを更新
+        K_sr = pd.Series(K)      # pandasシリーズ化
+        # 実験試行数カウンタ
+        count = 0
+        c_sr = pd.Series(count)  # pandasシリーズ化
+        # KとN_stim、countを結合
+        init_df = pd.concat([K_sr, Ns_sr, c_sr], axis = 1)
+        init_df.columns = ['K', 'N_stim', 'count']
+        # 設定用数列データとして保存
+        init_df.to_csv('set.csv', index = False)
+        #page.update()               # ページを更新
 
     # OKボタン押下時の動作を記述 -----------------------------------
     def buttonOK_clicked(e):
+        # 前試行までの K, N_stim, count を読込
+        init_df = pd.read_csv('set.csv')
+        K = init_df.K.to_numpy()
+        N_stim = int(init_df.N_stim.to_numpy()[0])
+        count = int(init_df.count.to_numpy()[0])
+        # 実験試行数の更新
+        count += 1
+        trial_disp.current.value = str(count) + "/" + str(N_stim**2)
+
+        # 刺激ペアを決定
+        firstStim = K[count-1] // N_stim   # 【先再生】の刺激番号
+        secondStim = K[count-1] % N_stim   # 【後再生】の刺激番号
+        if exp_drpdn.current.value == "予備実験":
+            firstStim = int(np.trunc(firstStim * 2.5))   # 刺激番号として0,2,5を指定
+            secondStim = int(np.trunc(secondStim * 2.5))
+        print(str(count) + "/" + str(N_stim**2) + ": 【刺激" + str(firstStim) + "】v.s.【刺激" + str(secondStim) + "】")
+        
         # 音を出す
-        sd.play(x_org, fs)
+        sd.play(x[:, firstStim], fs)
+        sd.play(x[:, secondStim], fs)
         
         page.update()               # ページを更新
 
