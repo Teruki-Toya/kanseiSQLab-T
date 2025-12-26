@@ -16,6 +16,8 @@ import numpy as np
 from scipy import signal
 import pandas as pd
 
+# %%
+
 ## 関数群 -----------------------------------------------------------------
 # (ローパスフィルタ)
 def lowpass(x, fs, f_pass, g_pass, g_stop):
