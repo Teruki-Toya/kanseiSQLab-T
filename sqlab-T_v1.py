@@ -15,28 +15,41 @@ import soundfile as sf
 import numpy as np
 from scipy import signal
 import pandas as pd
+import time
 
 # %%
 
 ## 関数群 -----------------------------------------------------------------
 # (ローパスフィルタ)
-def lowpass(x, fs, f_pass, g_pass, g_stop):
-    f_stop = f_pass + 300           # 阻止域端周波数
-    w_pass = f_pass / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
-    w_stop = f_stop / (fs/2)        # ナイキスト周波数で阻止域端周波数を正規化
-    N, Wn = signal.buttord(w_pass, w_stop, g_pass, g_stop)  # フィルタ次数とバタワース正規化周波数を計算
-    b, a = signal.butter(N, Wn, 'lowpass')                  # フィルタ伝達関数の分子と分母を計算
-    y = signal.filtfilt(b, a, x)                            # 入力 x にフィルタを適用
+def lowpass(x, fs, f_cut, ord):
+    """
+    < 入力 >
+        x: 時間波形（ndarray: サンプル × 2ch(LとR)）
+        fs: サンプリング周波数 [Hz]
+        f_cut: カットオフ周波数 [Hz]
+        ord: フィルタ次数
+    < 出力 >
+        y: フィルタリングされた時間波形（xと同次元）
+    """
+    w_cut = f_cut / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
+    b, a = signal.butter(ord, w_cut, 'low')  # バタワース型LPFのフィルタ係数                 # フィルタ伝達関数の分子と分母を計算
+    y = signal.lfilter(b, a, x, axis=0)      # 入力 x にフィルタを適用
     return y
 
 # (ハイパスフィルタ)
-def highpass(x, fs, f_pass, g_pass, g_stop):
-    f_stop = f_pass - 300           # 阻止域端周波数
-    w_pass = f_pass / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
-    w_stop = f_stop / (fs/2)        # ナイキスト周波数で阻止域端周波数を正規化
-    N, Wn = signal.buttord(w_pass, w_stop, g_pass, g_stop)  # フィルタ次数とバタワース正規化周波数を計算
-    b, a = signal.butter(N, Wn, 'highpass')                 # フィルタ伝達関数の分子と分母を計算
-    y = signal.filtfilt(b, a, x)                            # 入力 x にフィルタを適用
+def highpass(x, fs, f_cut, ord):
+    """
+    < 入力 >
+        x: 時間波形（ndarray: サンプル × 2ch(LとR)）
+        fs: サンプリング周波数 [Hz]
+        f_cut: カットオフ周波数 [Hz]
+        ord: フィルタ次数
+    < 出力 >
+        y: フィルタリングされた時間波形（xと同次元）
+    """
+    w_cut = f_cut / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
+    b, a = signal.butter(ord, w_cut, 'high')  # バタワース型HPFのフィルタ係数                 # フィルタ伝達関数の分子と分母を計算
+    y = signal.lfilter(b, a, x, axis=0)              # 入力 x にフィルタを適用
     return y
 
 ## 固定パラメータ・変数の設定 -----------------------------------------------
@@ -50,32 +63,36 @@ fL5 = 300
 fH5 = 3400
 fL6 = 1000
 fH6 = 3400
-# 刺激         fL      fH
-#   1 (CD)    ----    20000
-#   2 (FM)    ----    15000
-#   3 (AM)    ----     8000
-#   4 (s1)    ----     3400
-#   5 (TEL)    300     3400
-#   6 (s2)    1000     3400
-
-# (フィルタの通過/阻止域ゲイン損失 [dB])
-g_pass = 3
-g_stop = 40
+# (フィルタ次数)
+ordH2 = 8
+ordH3 = 8
+ordH4 = 4
+ordL5 = 4
+ordH5 = 4
+ordL6 = 4
+ordH6 = 4
+# 刺激         fL (ord.)      fH (ord.)
+#   1 (CD)    ----             20000
+#   2 (FM)    ----             15000 (8)
+#   3 (AM)    ----              8000 (8)
+#   4 (s1)    ----              3400 (4)
+#   5 (TEL)    300 (4)          3400 (4)
+#   6 (s2)    1000 (4)          3400 (4)
 
 ## 提示刺激の設定 -----------------------------------------------
 #（刺激の生成）
 x1, fs = sf.read('02AuraLee3.mp3')         # 原音（= 刺激1）
 x1 = x1[:, 0]
 
-x2 = lowpass(x1, fs, fH2, g_pass, g_stop)  # 刺激2
-x3 = lowpass(x1, fs, fH3, g_pass, g_stop)  # 刺激3
-x4 = lowpass(x1, fs, fH4, g_pass, g_stop)  # 刺激4
+x2 = lowpass(x1, fs, fH2, ordH2)  # 刺激2
+x3 = lowpass(x1, fs, fH3, ordH3)  # 刺激3
+x4 = lowpass(x1, fs, fH4, ordH4)  # 刺激4
 
-x5 = lowpass(x1, fs, fH5, g_pass, g_stop)
-x5 = highpass(x5, fs, fL5, g_pass, g_stop)  # 刺激5
+x5 = lowpass(x1, fs, fH5, ordH5)
+x5 = highpass(x5, fs, fL5, ordL5)  # 刺激5
 
-x6 = lowpass(x1, fs, fH6, g_pass, g_stop)
-x6 = highpass(x6, fs, fL6, g_pass, g_stop)  # 刺激6
+x6 = lowpass(x1, fs, fH6, ordH6)
+x6 = highpass(x6, fs, fL6, ordL6)  # 刺激6
 
 #（RMS調整）
 x1 = 0.75 * (x1 / np.max(np.abs(x1)))       # 基準振幅を決めておく
@@ -118,6 +135,7 @@ def main(page):
     
     # Init ボタン押下時の動作を記述 -----------------------------------
     def buttonInit_clicked(e):
+        OK_button.current.disabled = False
         if exp_drpdn.current.value == "本実験":
             N_stim = 6  # 本実験ならば刺激種類 6
         else:
@@ -132,18 +150,18 @@ def main(page):
         c_sr = pd.Series(count)  # pandasシリーズ化
         # KとN_stim、countを結合
         init_df = pd.concat([K_sr, Ns_sr, c_sr], axis = 1)
-        init_df.columns = ['K', 'N_stim', 'count']
+        init_df.columns = ['Kk', 'Ns', 'Cnt']
         # 設定用数列データとして保存
         init_df.to_csv('set.csv', index = False)
-        #page.update()               # ページを更新
+        page.update()               # ページを更新
 
     # OKボタン押下時の動作を記述 -----------------------------------
     def buttonOK_clicked(e):
         # 前試行までの K, N_stim, count を読込
         init_df = pd.read_csv('set.csv')
-        K = init_df.K.to_numpy()
-        N_stim = int(init_df.N_stim.to_numpy()[0])
-        count = int(init_df.count.to_numpy()[0])
+        K = init_df.Kk.to_numpy()
+        N_stim = int(init_df.Ns.to_numpy()[0])
+        count = int(init_df.Cnt.to_numpy()[0])
         # 実験試行数の更新
         count += 1
         trial_disp.current.value = str(count) + "/" + str(N_stim**2)
@@ -158,8 +176,13 @@ def main(page):
         
         # 音を出す
         sd.play(x[:, firstStim], fs)
+        time.sleep(5)
         sd.play(x[:, secondStim], fs)
         
+        # count の更新
+        init_df.Cnt = pd.Series(count)  # pandasシリーズ化
+        init_df.to_csv('set.csv', index = False)
+
         page.update()               # ページを更新
 
     # Flet コントロールの追加とページへの反映 -------------------------------
