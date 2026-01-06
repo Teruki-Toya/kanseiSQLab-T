@@ -18,8 +18,6 @@ import pandas as pd
 import time
 import datetime
 
-# %%
-
 ## 関数群 -----------------------------------------------------------------
 # (ローパスフィルタ)
 def lowpass(x, fs, f_cut, ord):
@@ -83,7 +81,7 @@ ordH6 = 4
 ## 提示刺激の設定 -----------------------------------------------
 #（刺激の生成）
 x1, fs = sf.read('02AuraLee3.mp3')         # 原音（= 刺激1）
-x1 = x1[:, 0]
+# x1 = x1[:, 0]
 
 x2 = lowpass(x1, fs, fH2, ordH2)  # 刺激2
 x3 = lowpass(x1, fs, fH3, ordH3)  # 刺激3
@@ -109,7 +107,6 @@ x3 = (RMSref/RMS_x3) * x3
 x4 = (RMSref/RMS_x4) * x4
 x5 = (RMSref/RMS_x5) * x5
 x6 = (RMSref/RMS_x6) * x6
-
 #（結合）
 x = np.stack([x1, x2, x3, x4, x5, x6], axis=1)  # 6-ch 信号
 
@@ -229,9 +226,9 @@ def main(page):
             page.update()               # ページを更新
             
             # 音を出す
-            sd.play(x[:, firstStim], fs)  # 先行刺激（A）を流す
+            sd.play(x[:, firstStim, :], fs)  # 先行刺激（A）を流す
             time.sleep(8)
-            sd.play(x[:, secondStim], fs) # 後続刺激（B）を流す
+            sd.play(x[:, secondStim, :], fs) # 後続刺激（B）を流す
             time.sleep(8)
             
             # count の反映
