@@ -16,6 +16,7 @@ import numpy as np
 from scipy import signal
 import pandas as pd
 import time
+import datetime
 
 # %%
 
@@ -130,11 +131,14 @@ def main(page):
     exp_drpdn = ft.Ref[ft.DropdownM2]()   # 予備/本実験選択窓を定義
     init_button = ft.Ref[ft.Button]()     # 初期化ボタンを定義
     trial_disp = ft.Ref[ft.Text]()        # 試行数表示部を定義
-    ans_radio = ft.Ref[ft.RadioGroup]()   # 回答部ラジオボタンを定義
+    ans_rg = ft.Ref[ft.RadioGroup]()   # 回答部ラジオボタンを定義
     OK_button = ft.Ref[ft.Button]()       # OKボタンを定義
     
     # Init ボタン押下時の動作を記述 -----------------------------------
     def buttonInit_clicked(e):
+        ID_txtbox.current.disabled = True
+        exp_drpdn.current.disabled = True
+        init_button.current.disabled = True
         OK_button.current.disabled = False
         if exp_drpdn.current.value == "本実験":
             N_stim = 6  # 本実験ならば刺激種類 6
@@ -142,29 +146,43 @@ def main(page):
             N_stim = 3  # 予備実験ならば刺激種類 3
         Ns_sr = pd.Series(N_stim)  # pandasシリーズ化
         
+        # 回答結果保存用データフレームの生成
+        res_df = pd.DataFrame(columns=['Participant', 'First Stimulus', 'Second Stimulus', 'Trial', 'Result'])
+        now = datetime.datetime.now()
+        currentDateTime = now.strftime("%m%d%H%M")
+        resCsvFileName = 'SQResult-'+currentDateTime+'.csv'
+        res_df.to_csv(resCsvFileName, index = False)
+        csvFN_sr = pd.Series(resCsvFileName)
+        
         # 刺激ペア生成用数列
         K = np.random.permutation(np.arange(N_stim ** 2))
+        K = K[K % (N_stim + 1) > 0]
         K_sr = pd.Series(K)      # pandasシリーズ化
         # 実験試行数カウンタ
         count = 0
         c_sr = pd.Series(count)  # pandasシリーズ化
-        # KとN_stim、countを結合
-        init_df = pd.concat([K_sr, Ns_sr, c_sr], axis = 1)
-        init_df.columns = ['Kk', 'Ns', 'Cnt']
+        # KとN_stim、count、csvFNを結合
+        set_df = pd.concat([K_sr, Ns_sr, c_sr, csvFN_sr], axis = 1)
+        set_df.columns = ['Kk', 'Ns', 'Cnt', 'csvFN']
         # 設定用数列データとして保存
-        init_df.to_csv('set.csv', index = False)
+        set_df.to_csv('set.csv', index = False)
+        
         page.update()               # ページを更新
 
     # OKボタン押下時の動作を記述 -----------------------------------
     def buttonOK_clicked(e):
-        # 前試行までの K, N_stim, count を読込
-        init_df = pd.read_csv('set.csv')
-        K = init_df.Kk.to_numpy()
-        N_stim = int(init_df.Ns.to_numpy()[0])
-        count = int(init_df.Cnt.to_numpy()[0])
+        ans_rg.current.disabled = True  # 回答不能にする
+        page.update()               # ページを更新
+        
+        # 前試行までの K, N_stim, countとcsvFileNameを読込
+        set_df = pd.read_csv('set.csv')
+        K = set_df.Kk.to_numpy()
+        N_stim = int(set_df.Ns.to_numpy()[0])
+        count = int(set_df.Cnt.to_numpy()[0])
+        csvFileName = set_df.csvFN[0]
         # 実験試行数の更新
         count += 1
-        trial_disp.current.value = str(count) + "/" + str(N_stim**2)
+        trial_disp.current.value = str(count) + "/" + str(len(K))
 
         # 刺激ペアを決定
         firstStim = K[count-1] // N_stim   # 【先再生】の刺激番号
@@ -172,18 +190,36 @@ def main(page):
         if exp_drpdn.current.value == "予備実験":
             firstStim = int(np.trunc(firstStim * 2.5))   # 刺激番号として0,2,5を指定
             secondStim = int(np.trunc(secondStim * 2.5))
-        print(str(count) + "/" + str(N_stim**2) + ": 【刺激" + str(firstStim) + "】v.s.【刺激" + str(secondStim) + "】")
+        print(str(count) + "/" + str(len(K)) + ": 【刺激" + str(firstStim) + "】v.s.【刺激" + str(secondStim) + "】")
+        
+        page.update()               # ページを更新
         
         # 音を出す
-        sd.play(x[:, firstStim], fs)
-        time.sleep(5)
-        sd.play(x[:, secondStim], fs)
+        sd.play(x[:, firstStim], fs)  # 先行刺激（A）を流す
+        time.sleep(8)
+        sd.play(x[:, secondStim], fs) # 後続刺激（B）を流す
         
-        # count の更新
-        init_df.Cnt = pd.Series(count)  # pandasシリーズ化
-        init_df.to_csv('set.csv', index = False)
-
-        page.update()               # ページを更新
+        # count の更新・反映
+        set_df.Cnt = pd.Series(count)  # pandasシリーズ化
+        set_df.to_csv('set.csv', index = False)
+        
+        ans_rg.current.disabled = False  # 回答可能にする
+        page.update()                   # ページを更新
+        
+        # 実験結果の保存
+        res_df = pd.read_csv(csvFileName)
+        newData = pd.DataFrame({'Participant': [ID_txtbox.current.value],
+                   'First Stimulus': [firstStim],
+                   'Second Stimulus': [secondStim],
+                   'Trial': [count],
+                   'Result': [ans_rg.current.value],
+                   })  # 回答結果
+        res_df = pd.concat([res_df, newData])  # 現在の回答を追加
+        res_df.to_csv(csvFileName, index = False)
+        
+        # 終了フラグ
+        
+        
 
     # Flet コントロールの追加とページへの反映 -------------------------------
     page.add(
@@ -217,7 +253,7 @@ def main(page):
         ft.Text(""),                                        # 空行
         ft.Text("先行刺激(A)と後続刺激(B)を比べて音質は……"),      # 回答部テキスト
         ft.RadioGroup(                                      # 回答部ラジオボタン
-           ref=ans_radio,
+           ref=ans_rg,
            content=ft.Row(
                [
                    ft.Radio(value="2", label="Aの方が良い"),
@@ -226,7 +262,8 @@ def main(page):
                    ft.Radio(value="-1", label="ややBの方が良い"),
                    ft.Radio(value="-2", label="Bの方が良い"),
                ]
-           )
+           ),
+           disabled = True
         ),
 
         # OKボタン
