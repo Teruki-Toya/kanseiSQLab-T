@@ -15,28 +15,42 @@ import soundfile as sf
 import numpy as np
 from scipy import signal
 import pandas as pd
+import time
+import datetime
 
 # %%
 
 ## 関数群 -----------------------------------------------------------------
 # (ローパスフィルタ)
-def lowpass(x, fs, f_pass, g_pass, g_stop):
-    f_stop = f_pass + 300           # 阻止域端周波数
-    w_pass = f_pass / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
-    w_stop = f_stop / (fs/2)        # ナイキスト周波数で阻止域端周波数を正規化
-    N, Wn = signal.buttord(w_pass, w_stop, g_pass, g_stop)  # フィルタ次数とバタワース正規化周波数を計算
-    b, a = signal.butter(N, Wn, 'lowpass')                  # フィルタ伝達関数の分子と分母を計算
-    y = signal.filtfilt(b, a, x)                            # 入力 x にフィルタを適用
+def lowpass(x, fs, f_cut, ord):
+    """
+    < 入力 >
+        x: 時間波形（ndarray: サンプル × 2ch(LとR)）
+        fs: サンプリング周波数 [Hz]
+        f_cut: カットオフ周波数 [Hz]
+        ord: フィルタ次数
+    < 出力 >
+        y: フィルタリングされた時間波形（xと同次元）
+    """
+    w_cut = f_cut / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
+    b, a = signal.butter(ord, w_cut, 'low')  # バタワース型LPFのフィルタ係数
+    y = signal.lfilter(b, a, x, axis=0)      # 入力 x にフィルタを適用
     return y
 
 # (ハイパスフィルタ)
-def highpass(x, fs, f_pass, g_pass, g_stop):
-    f_stop = f_pass - 300           # 阻止域端周波数
-    w_pass = f_pass / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
-    w_stop = f_stop / (fs/2)        # ナイキスト周波数で阻止域端周波数を正規化
-    N, Wn = signal.buttord(w_pass, w_stop, g_pass, g_stop)  # フィルタ次数とバタワース正規化周波数を計算
-    b, a = signal.butter(N, Wn, 'highpass')                 # フィルタ伝達関数の分子と分母を計算
-    y = signal.filtfilt(b, a, x)                            # 入力 x にフィルタを適用
+def highpass(x, fs, f_cut, ord):
+    """
+    < 入力 >
+        x: 時間波形（ndarray: サンプル × 2ch(LとR)）
+        fs: サンプリング周波数 [Hz]
+        f_cut: カットオフ周波数 [Hz]
+        ord: フィルタ次数
+    < 出力 >
+        y: フィルタリングされた時間波形（xと同次元）
+    """
+    w_cut = f_cut / (fs/2)        # ナイキスト周波数で通過域端周波数を正規化
+    b, a = signal.butter(ord, w_cut, 'high')  # バタワース型HPFのフィルタ係数
+    y = signal.lfilter(b, a, x, axis=0)              # 入力 x にフィルタを適用
     return y
 
 ## 固定パラメータ・変数の設定 -----------------------------------------------
@@ -50,32 +64,36 @@ fL5 = 300
 fH5 = 3400
 fL6 = 1000
 fH6 = 3400
-# 刺激         fL      fH
-#   1 (CD)    ----    20000
-#   2 (FM)    ----    15000
-#   3 (AM)    ----     8000
-#   4 (s1)    ----     3400
-#   5 (TEL)    300     3400
-#   6 (s2)    1000     3400
-
-# (フィルタの通過/阻止域ゲイン損失 [dB])
-g_pass = 3
-g_stop = 40
+# (フィルタ次数)
+ordH2 = 8
+ordH3 = 8
+ordH4 = 4
+ordL5 = 4
+ordH5 = 4
+ordL6 = 4
+ordH6 = 4
+# 刺激         fL (ord.)      fH (ord.)
+#   1 (CD)    ----             20000
+#   2 (FM)    ----             15000 (8)
+#   3 (AM)    ----              8000 (8)
+#   4 (s1)    ----              3400 (4)
+#   5 (TEL)    300 (4)          3400 (4)
+#   6 (s2)    1000 (4)          3400 (4)
 
 ## 提示刺激の設定 -----------------------------------------------
 #（刺激の生成）
 x1, fs = sf.read('02AuraLee3.mp3')         # 原音（= 刺激1）
 x1 = x1[:, 0]
 
-x2 = lowpass(x1, fs, fH2, g_pass, g_stop)  # 刺激2
-x3 = lowpass(x1, fs, fH3, g_pass, g_stop)  # 刺激3
-x4 = lowpass(x1, fs, fH4, g_pass, g_stop)  # 刺激4
+x2 = lowpass(x1, fs, fH2, ordH2)  # 刺激2
+x3 = lowpass(x1, fs, fH3, ordH3)  # 刺激3
+x4 = lowpass(x1, fs, fH4, ordH4)  # 刺激4
 
-x5 = lowpass(x1, fs, fH5, g_pass, g_stop)
-x5 = highpass(x5, fs, fL5, g_pass, g_stop)  # 刺激5
+x5 = lowpass(x1, fs, fH5, ordH5)
+x5 = highpass(x5, fs, fL5, ordL5)  # 刺激5
 
-x6 = lowpass(x1, fs, fH6, g_pass, g_stop)
-x6 = highpass(x6, fs, fL6, g_pass, g_stop)  # 刺激6
+x6 = lowpass(x1, fs, fH6, ordH6)
+x6 = highpass(x6, fs, fL6, ordL6)  # 刺激6
 
 #（RMS調整）
 x1 = 0.75 * (x1 / np.max(np.abs(x1)))       # 基準振幅を決めておく
@@ -113,54 +131,126 @@ def main(page):
     exp_drpdn = ft.Ref[ft.DropdownM2]()   # 予備/本実験選択窓を定義
     init_button = ft.Ref[ft.Button]()     # 初期化ボタンを定義
     trial_disp = ft.Ref[ft.Text]()        # 試行数表示部を定義
-    ans_radio = ft.Ref[ft.RadioGroup]()   # 回答部ラジオボタンを定義
+    state_disp = ft.Ref[ft.Text]()        # 状態表示部を定義
+    ans_rg = ft.Ref[ft.RadioGroup]()      # 回答部ラジオボタングループを定義
+    ans_radioLL = ft.Ref[ft.Radio]()      # 回答部ラジオボタンLLを定義
+    ans_radioL0 = ft.Ref[ft.Radio]()      # 回答部ラジオボタンL0を定義
+    ans_radioCC = ft.Ref[ft.Radio]()      # 回答部ラジオボタンCCを定義
+    ans_radioR0 = ft.Ref[ft.Radio]()      # 回答部ラジオボタンR0を定義
+    ans_radioRR = ft.Ref[ft.Radio]()      # 回答部ラジオボタンRRを定義
     OK_button = ft.Ref[ft.Button]()       # OKボタンを定義
     
     # Init ボタン押下時の動作を記述 -----------------------------------
     def buttonInit_clicked(e):
+        ID_txtbox.current.disabled = True
+        exp_drpdn.current.disabled = True
+        init_button.current.disabled = True
+        OK_button.current.disabled = False
         if exp_drpdn.current.value == "本実験":
             N_stim = 6  # 本実験ならば刺激種類 6
         else:
             N_stim = 3  # 予備実験ならば刺激種類 3
         Ns_sr = pd.Series(N_stim)  # pandasシリーズ化
         
+        # 回答結果保存用データフレームの生成
+        res_df = pd.DataFrame(columns=['Participant', 'Trial', 'First Stimulus', 'Second Stimulus', 'Result'])
+        now = datetime.datetime.now()
+        currentDateTime = now.strftime("%m%d%H%M")
+        resCsvFileName = 'SQResult-'+currentDateTime+'.csv'
+        res_df.to_csv(resCsvFileName, index = False)
+        csvFN_sr = pd.Series(resCsvFileName)
+        
         # 刺激ペア生成用数列
         K = np.random.permutation(np.arange(N_stim ** 2))
+        K = K[K % (N_stim + 1) > 0]
         K_sr = pd.Series(K)      # pandasシリーズ化
         # 実験試行数カウンタ
         count = 0
         c_sr = pd.Series(count)  # pandasシリーズ化
-        # KとN_stim、countを結合
-        init_df = pd.concat([K_sr, Ns_sr, c_sr], axis = 1)
-        init_df.columns = ['K', 'N_stim', 'count']
+        # KとN_stim、count、csvFNを結合
+        set_df = pd.concat([K_sr, Ns_sr, c_sr, csvFN_sr], axis = 1)
+        set_df.columns = ['Kk', 'Ns', 'Cnt', 'csvFN']
         # 設定用数列データとして保存
-        init_df.to_csv('set.csv', index = False)
-        #page.update()               # ページを更新
+        set_df.to_csv('set.csv', index = False)
+        # 状態表示の更新
+        state_disp.current.value = "【OK を押して実験開始】"
+        
+        page.update()               # ページを更新
 
     # OKボタン押下時の動作を記述 -----------------------------------
     def buttonOK_clicked(e):
-        # 前試行までの K, N_stim, count を読込
-        init_df = pd.read_csv('set.csv')
-        K = init_df.K.to_numpy()
-        N_stim = int(init_df.N_stim.to_numpy()[0])
-        count = int(init_df.count.to_numpy()[0])
-        # 実験試行数の更新
-        count += 1
-        trial_disp.current.value = str(count) + "/" + str(N_stim**2)
-
-        # 刺激ペアを決定
-        firstStim = K[count-1] // N_stim   # 【先再生】の刺激番号
-        secondStim = K[count-1] % N_stim   # 【後再生】の刺激番号
-        if exp_drpdn.current.value == "予備実験":
-            firstStim = int(np.trunc(firstStim * 2.5))   # 刺激番号として0,2,5を指定
-            secondStim = int(np.trunc(secondStim * 2.5))
-        print(str(count) + "/" + str(N_stim**2) + ": 【刺激" + str(firstStim) + "】v.s.【刺激" + str(secondStim) + "】")
-        
-        # 音を出す
-        sd.play(x[:, firstStim], fs)
-        sd.play(x[:, secondStim], fs)
-        
+        # 回答不能にする
+        ans_radioLL.current.disabled = True
+        ans_radioL0.current.disabled = True
+        ans_radioCC.current.disabled = True
+        ans_radioR0.current.disabled = True
+        ans_radioRR.current.disabled = True
+        OK_button.current.disabled = True
         page.update()               # ページを更新
+        
+        # 前試行までの設定パラメータを読込
+        set_df = pd.read_csv('set.csv')
+        K = set_df.Kk.to_numpy()  # ランダム提示制御用変数
+        N_stim = int(set_df.Ns.to_numpy()[0])  # 刺激種類数
+        count = int(set_df.Cnt.to_numpy()[0])  # カウンタ
+        csvFileName = set_df.csvFN[0]  # 回答結果保存用CSVのファイル名
+        # 前試行までの回答結果CSVを読込
+        res_df = pd.read_csv(csvFileName)
+        # 回答結果の保存（1試行目以降の処理）
+        if count > 0:
+            s1 = K[count-1] // N_stim   # 前回の先行刺激（A）の刺激番号
+            s2 = K[count-1] % N_stim    # 前回の後続刺激（B）の刺激番号
+            if exp_drpdn.current.value == "予備実験":
+                s1 = int(np.trunc(s1 * 2.5))   # 刺激番号として0,2,5を指定
+                s2 = int(np.trunc(s2 * 2.5))
+            answer = ans_rg.current.value  # 前回の回答結果（今のラジオボタンの位置）
+            # 回答データフレーム
+            newData = pd.DataFrame({'Participant': [ID_txtbox.current.value],
+                   'Trial': [count],
+                   'First Stimulus': [s1+1],
+                   'Second Stimulus': [s2+1],
+                   'Result': [answer],
+                   })
+            res_df = pd.concat([res_df, newData])  # 現在の回答を追加
+            res_df.to_csv(csvFileName, index = False)
+
+        # 実験試行数の更新（& 終了判定）
+        count += 1  # カウンタと状態表示の更新
+        if count <= len(K):
+            trial_disp.current.value = str(count) + "/" + str(len(K))
+            state_disp.current.value = "【刺激 A --> B の順に流れています……】"
+
+            # 刺激ペアを決定
+            firstStim = K[count-1] // N_stim   # 先行刺激（A）の刺激番号
+            secondStim = K[count-1] % N_stim   # 後続刺激（B）の刺激番号
+            if exp_drpdn.current.value == "予備実験":
+                firstStim = int(np.trunc(firstStim * 2.5))   # 刺激番号として0,2,5を指定
+                secondStim = int(np.trunc(secondStim * 2.5))
+            page.update()               # ページを更新
+            
+            # 音を出す
+            sd.play(x[:, firstStim], fs)  # 先行刺激（A）を流す
+            time.sleep(8)
+            sd.play(x[:, secondStim], fs) # 後続刺激（B）を流す
+            time.sleep(8)
+            
+            # count の反映
+            set_df.Cnt = pd.Series(count)  # pandasシリーズ化
+            set_df.to_csv('set.csv', index = False)
+            
+            # 回答可能にする
+            ans_radioLL.current.disabled = False
+            ans_radioL0.current.disabled = False
+            ans_radioCC.current.disabled = False
+            ans_radioR0.current.disabled = False
+            ans_radioRR.current.disabled = False
+            OK_button.current.disabled = False
+            state_disp.current.value = "【回答を選択して OK を押してください……】"
+            page.update()                   # ページを更新
+
+        else:  # 終了判定
+            state_disp.current.value = "【実験終了です！】"
+            page.update()                   # ページを更新
 
     # Flet コントロールの追加とページへの反映 -------------------------------
     page.add(
@@ -192,16 +282,27 @@ def main(page):
             ]
         ),
         ft.Text(""),                                        # 空行
+        ft.Text(
+            "【初期化待機中……】",
+            ref=state_disp,
+            size=25
+        ),
+        ft.Text(""),                                        # 空行
         ft.Text("先行刺激(A)と後続刺激(B)を比べて音質は……"),      # 回答部テキスト
         ft.RadioGroup(                                      # 回答部ラジオボタン
-           ref=ans_radio,
+           ref=ans_rg,
            content=ft.Row(
                [
-                   ft.Radio(value="2", label="Aの方が良い"),
-                   ft.Radio(value="1", label="ややAの方が良い"),
-                   ft.Radio(value="0", label="どちらともいえない"),
-                   ft.Radio(value="-1", label="ややBの方が良い"),
-                   ft.Radio(value="-2", label="Bの方が良い"),
+                   ft.Radio(ref=ans_radioLL, value="2",
+                            label="Aの方が良い", disabled = True),
+                   ft.Radio(ref=ans_radioL0, value="1",
+                            label="ややAの方が良い", disabled = True),
+                   ft.Radio(ref=ans_radioCC, value="0",
+                            label="どちらともいえない", disabled = True),
+                   ft.Radio(ref=ans_radioR0, value="-1",
+                            label="ややBの方が良い", disabled = True),
+                   ft.Radio(ref=ans_radioRR, value="-2",
+                            label="Bの方が良い", disabled = True),
                ]
            )
         ),
