@@ -96,29 +96,29 @@ w_lpCut = f_lpCut / (fs/2)
 
 bl, al = signal.butter(4, w_lpCut, 'low')  # バタワース型LPFのフィルタ係数
 w, H = signal.freqz(bl, al)
-plt.plot((fs/2)*w/np.pi, 20 * np.log10(np.abs(H)))
-plt.title('LPF frequency response')
-plt.xlabel('Frequency [Hz]')
-plt.ylabel('Gain [dB]')
-plt.axvline(f_lpCut, color='green')
-plt.xlim(0, 20000)
-plt.ylim(-65, 5)
-plt.show()
+#plt.plot((fs/2)*w/np.pi, 20 * np.log10(np.abs(H)))
+#plt.title('LPF frequency response')
+#plt.xlabel('Frequency [Hz]')
+#plt.ylabel('Gain [dB]')
+#plt.axvline(f_lpCut, color='green')
+#plt.xlim(0, 20000)
+#plt.ylim(-65, 5)
+#plt.show()
 
 #（HPF）
-f_hpCut = 1000  # HPFのカットオフ周波数 [Hz]
+f_hpCut = 300  # HPFのカットオフ周波数 [Hz]
 w_hpCut = f_hpCut / (fs/2)
 
 bh, ah = signal.butter(4, w_hpCut, 'high')  # バタワース型HPFのフィルタ係数
 w, H = signal.freqz(bh, ah)
-plt.plot((fs/2)*w/np.pi, 20 * np.log10(np.abs(H)))
-plt.title('HPF frequency response')
-plt.xlabel('Frequency [Hz]')
-plt.ylabel('Gain [dB]')
-plt.axvline(f_hpCut, color='green')
-plt.xlim(0, 20000)
-plt.ylim(-65, 5)
-plt.show()
+#plt.plot((fs/2)*w/np.pi, 20 * np.log10(np.abs(H)))
+#plt.title('HPF frequency response')
+#plt.xlabel('Frequency [Hz]')
+#plt.ylabel('Gain [dB]')
+#plt.axvline(f_hpCut, color='green')
+#plt.xlim(0, 20000)
+#plt.ylim(-65, 5)
+#plt.show()
         
 ## ホワイトノイズの生成 -------------------------------------------------
 T = 2.0     # 信号時間長 [s]
@@ -140,12 +140,14 @@ Yf_dB = Yf_dB - np.max(Yf_dB)  # 最大値で正規化
 
 plt.plot(freq, Xf_dB, color = "blue", label = "Original")
 plt.plot(freq, Yf_dB, color = "red", label = "Filtered")
-plt.title('White noise spectrum')
+plt.title('Amplitude spectrum')
 plt.xlabel('Frequency [Hz]')
 plt.ylabel('Relative level [dB]')
 plt.xlim(0, 20000)
 plt.ylim(-65, 5)
 plt.legend
+
+plt.savefig('ft4.png', format='png', bbox_inches='tight')
 plt.show()
 
 # %%
